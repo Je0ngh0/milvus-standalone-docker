@@ -1,4 +1,3 @@
-````markdown
 # milvus-runpod-standalone
 
 RunPod 환경에서 Milvus Standalone을 실행하기 위한 커스텀 Docker 이미지 및 설정 모음입니다.  
@@ -92,7 +91,7 @@ RunPod에서는 별도의 시작 커맨드를 지정하지 않더라도, 위 과
 ```bash
 git clone https://github.com/Je0ngh0/milvus-runpod-standalone.git
 cd milvus-runpod-standalone
-````
+```
 
 ### 2. 레지스트리에 올릴 이미지 이름 결정
 
