@@ -1,4 +1,4 @@
-# milvus-runpod-standalone
+# milvus-standalone-runpod
 
 RunPod 환경에서 Milvus Standalone을 실행하기 위한 커스텀 Docker 이미지 및 설정 모음입니다.  
 공식 `standalone_embed.sh` 스크립트가 수행하는 작업을 Dockerfile과 엔트리포인트 스크립트로 옮겨, RunPod의 제한된 설정(이미지, 시작 커맨드, 포트, 환경변수) 안에서도 Milvus를 구동할 수 있도록 구성했습니다.
