@@ -192,15 +192,17 @@ RunPod에서 새 Pod 템플릿을 만들 때 다음과 같이 설정합니다.
 
 ### 2. 포트 설정
 
-**Expose HTTP Ports (Max 10)** 항목에 다음 포트를 등록합니다.
+**Expose TCP Ports (Max 10)** 항목에 다음 포트를 등록합니다.
 
 * `19530`
 * `9091`
 * `2379`
 
-> RunPod UI에서는 이름이 “HTTP Ports”이지만, gRPC 포트(19530)도 여기서 함께 노출해야 외부에서 접근할 수 있습니다.
+> Milvus gRPC(19530), WebUI/healthz(9091), Embedded Etcd(2379)는 모두 **TCP 레벨로 직접 노출**해야 하므로  
+> `Expose HTTP Ports` 가 아니라 **`Expose TCP Ports`** 에 등록해야 외부에서 접근할 수 있습니다.
 
 실제 사용 목적은 아래 [포트 설명](#포트-설명)을 참조하세요.
+
 
 ### 3. 환경변수 설정
 
@@ -258,48 +260,49 @@ Milvus Standalone 및 Embedded Etcd는 다음 포트를 사용합니다.
 
 | 포트  | 설명                                                                                       |
 |-------|--------------------------------------------------------------------------------------------|
-| 19530 | Milvus gRPC 포트입니다. Python / Java / Go / Node.js 등의 SDK는 기본적으로 이 포트로 접속합니다.<br>로컬 기본 주소는 `http://localhost:19530` 입니다. RunPod 환경에서는 노출된 프록시 도메인(예: `<username>-19530.proxy.runpod.net`)을 SDK의 gRPC 엔드포인트로 사용합니다. |
-| 9091  | Milvus의 **관리/모니터링용 HTTP 포트**입니다. `healthz` 엔드포인트와 WebUI가 이 포트에서 제공됩니다.<br>예: 로컬 환경에서는 `http://127.0.0.1:9091/webui/` 로 WebUI에 접근할 수 있고, `http://127.0.0.1:9091/healthz` 로 상태를 확인할 수 있습니다. |
-| 2379  | Embedded Etcd 클라이언트 포트입니다. Milvus와 동일 컨테이너 내에 embed Etcd가 설치되어 이 포트에서 서비스되며, 설정은 `embedEtcd.yaml` 에 의해 제어됩니다. |
+| 19530 | Milvus gRPC 포트입니다. Python / Java / Go / Node.js 등의 SDK는 기본적으로 이 포트로 접속합니다.<br>로컬 기본 주소는 `http://localhost:19530` 입니다. RunPod 환경에서는 **Expose TCP Ports** 에 19530을 등록한 뒤, `Direct TCP Ports` 에 표시되는 `외부 IP:포트`를 SDK의 gRPC 엔드포인트로 사용합니다. (예: `213.173.111.109:30195 -> :19530` 이라면 `http://213.173.111.109:30195`) |
+| 9091  | Milvus의 **관리/모니터링용 HTTP 포트**입니다. `healthz` 엔드포인트와 WebUI가 이 포트에서 제공됩니다.<br>예: 로컬 환경에서는 `http://127.0.0.1:9091/webui/` 로 WebUI에 접근할 수 있고, `http://127.0.0.1:9091/healthz` 로 상태를 확인할 수 있습니다. RunPod에서는 **Expose TCP Ports** 에 9091을 등록하고, `Direct TCP Ports` 에 표시되는 `외부 IP:포트`를 사용합니다. 예를 들어 `213.173.111.109:10953 -> :9091` 라면 WebUI 주소는 `http://213.173.111.109:10953/webui/`, health 체크는 `http://213.173.111.109:10953/healthz` 입니다. |
+| 2379  | Embedded Etcd 클라이언트 포트입니다. Milvus와 동일 컨테이너 내에 embed Etcd가 설치되어 이 포트에서 서비스되며, 설정은 `embedEtcd.yaml` 에 의해 제어됩니다.<br>RunPod에서는 **Expose TCP Ports** 에 2379를 등록하고, `Direct TCP Ports` 에 표시되는 `외부 IP:포트`를 Etcd 클라이언트가 사용하는 엔드포인트로 지정합니다. (예: `213.173.111.109:32379 -> :2379` 이라면 `http://213.173.111.109:32379`) |
 
-RunPod의 **Expose HTTP Ports** 에 위 세 포트(19530, 9091, 2379)를 모두 추가해 두면,  
-RunPod가 제공하는 SSH / Proxy 도메인을 통해 다음과 같이 접근할 수 있습니다.
+RunPod의 **Expose TCP Ports** 에 위 세 포트(19530, 9091, 2379)를 모두 추가해 두면,  
+RunPod가 제공하는 **Direct TCP Ports** 정보를 통해 다음과 같이 접근할 수 있습니다.
 
-### RunPod에서의 SSH 및 접근 URL 규칙
+### RunPod에서의 Direct TCP 포트 접근 규칙
 
-- **SSH 기본 포맷**
+`Direct TCP Ports` 에는 다음과 같은 형식으로 매핑이 표시됩니다.
 
-```bash
-ssh <username>-<port>@ssh.runpod.io -i ~/.ssh/id_ed25519
+```text
+<public-ip>:<external-port> -> :<internal-port>
 ````
 
-- **SSH 예시**
+이때 Milvus 관련 포트의 접근 URL은 다음과 같이 구성합니다.
 
-```bash
-ssh 5bgxrsaf7se21n-64411db8@ssh.runpod.io -i ~/.ssh/id_ed25519
-```
+* **SDK(gRPC) 접속 (19530)**
 
-- **URL 기본 포맷**
+  * 예시 매핑: `213.173.111.109:30195 -> :19530`
+  * SDK gRPC 엔드포인트:
 
-```text
-SDK(gRPC):            <username>-19530.proxy.runpod.net
-Etcd(디버깅/점검 용도): <username>-2379.proxy.runpod.net
-WebUI:                https://<username>-9091.proxy.runpod.net/webui/
-health 체크(필요 시):  https://<username>-9091.proxy.runpod.net/healthz
-```
+    * `http://213.173.111.109:30195`
 
-- **URL 예시**
+* **WebUI / health 체크 (9091)**
 
-```text
-SDK(gRPC):            5bgxrsaf7se21n-19530.proxy.runpod.net
-Etcd(디버깅/점검 용도): 5bgxrsaf7se21n-2379.proxy.runpod.net
-WebUI:                https://5bgxrsaf7se21n-9091.proxy.runpod.net/webui/
-health 체크(필요 시):  https://5bgxrsaf7se21n-9091.proxy.runpod.net/healthz
-```
+  * 예시 매핑: `213.173.111.109:10953 -> :9091`
+  * WebUI:
 
-> 각 SDK(gRPC) / Etcd 클라이언트에서는 위 도메인을 엔드포인트 호스트로 사용하고,
-> 필요 시 포트/프로토콜 설정은 사용하는 클라이언트/라이브러리의 설정 방식에 맞춰 지정하면 됩니다.
+    * `http://213.173.111.109:10953/webui/`
+  * health 체크(필요 시):
 
+    * `http://213.173.111.109:10953/healthz`
+
+* **Etcd (2379, 디버깅/점검 용도)**
+
+  * 예시 매핑: `213.173.111.109:32379 -> :2379`
+  * Etcd 엔드포인트:
+
+    * `http://213.173.111.109:32379`
+
+> 각 SDK(gRPC) / Etcd 클라이언트에서는 위 **Direct TCP의 외부 IP:포트**를 엔드포인트로 사용하면 되며,
+> 필요 시 스킴(`http://` 여부)과 추가 옵션은 사용하는 클라이언트/라이브러리의 설정 방식에 맞춰 지정하면 됩니다.
 
 ---
 
